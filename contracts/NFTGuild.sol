@@ -58,13 +58,18 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
         _;
     }
 
+    //---------- Constants ----------//
+    uint256 private constant TAX_DIVISOR = 10000;
+
     //---------- Variables ----------//
     uint256 public maxSupply;
     uint256 public miningFee;
+    uint256 public mintingFee;
     uint256 public miningCycle;
     uint256 public mintingPrice;
     string private baseTokenURI;
     address public routerAddress;
+    address public treasuryAddress;
     ERC20Burnable public token;
     Counters.Counter private _tokenIds;
 
@@ -85,6 +90,10 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
     error TokenNotExist();
     error InvalidMintAmount();
     error InsufficientEthBalance();
+    error InsufficientEthValue();
+    error InvalidValue();
+    error InvalidAddress();
+    error TransferFailed();
 
     //---------- Events -----------//
     event Minted(address indexed minter, uint256 indexed tokenId);
@@ -97,11 +106,13 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
     ) ERC721("NFTGuild", "NFTGuild") {
         maxSupply = 160;
         miningCycle = 7 days;
-        miningFee = 1 ether;
+        miningFee = 2000; // 20%
+        mintingFee = 2000; // 20%
         token = ERC20Burnable(_token);
         routerAddress = _routerAddress;
         dataFeeds = AggregatorV3Interface(_dataFeedsAddress);
         mintingPrice = 100 ether; // 100$
+        treasuryAddress = msg.sender;
     }
 
     receive() external payable {}
@@ -159,6 +170,16 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
         uint256 tokenId
     ) internal override(ERC721, ERC721URIStorage) {
         super._burn(tokenId);
+    }
+
+    function setMintingFee(uint256 _mintingFee) external onlyOwner {
+        if (_mintingFee > 200) revert InvalidValue();
+        mintingFee = _mintingFee;
+    }
+
+    function setMiningFee(uint256 _miningFee) external onlyOwner {
+        if (_miningFee > 200) revert InvalidValue();
+        miningFee = _miningFee;
     }
 
     /**
@@ -261,8 +282,19 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
     function setTokenURI(
         uint256 _tokenId,
         string memory _tokenURI
-    ) public onlyOwner {
+    ) external onlyOwner {
         _setTokenURI(_tokenId, _tokenURI);
+    }
+
+    /**
+     * @dev Set treasury address.
+     * @param _treasuryAddress Address to set.
+     * Requirements:
+     * `_treasuryAddress` cannot be the zero address.
+     */
+    function setTreasuryAddress(address _treasuryAddress) external onlyOwner {
+        if (_treasuryAddress == address(0)) revert InvalidAddress();
+        treasuryAddress = _treasuryAddress;
     }
 
     /**
@@ -284,10 +316,26 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
      * @dev Mint NFTs.
      * @param _count Amount of NFTs to mint.
      */
-    function mint(uint256 _count) public {
+    function mint(uint256 _count) external payable {
+        // check if minting counter is valid
         if (_count < 1 || _tokenIds.current() + _count > maxSupply) {
             revert InvalidMintAmount();
         }
+
+        // check if send value is valid
+        uint256 mintingEthAmount = getRequiredEthAmount() * _count;
+        if (msg.value < mintingEthAmount) {
+            revert InsufficientEthValue();
+        }
+
+        // calculate minting fee and swap ETH for tokens
+        uint256 mintingFeeAmount = (mintingEthAmount * mintingFee) /
+            TAX_DIVISOR;
+        _swapEthForTokens(mintingFeeAmount);
+
+        // transfer minting fee to treasury
+        (bool success, ) = treasuryAddress.call{value: mintingFeeAmount}("");
+        if (!success) revert TransferFailed();
 
         for (uint256 i = 0; i < _count; i++) {
             uint newTokenID = _tokenIds.current();
