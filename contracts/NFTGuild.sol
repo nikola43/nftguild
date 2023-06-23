@@ -161,17 +161,6 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
         super._burn(tokenId);
     }
 
-    function _getLastPrice() internal view returns (uint256) {
-        (
-            uint80 roundId,
-            int256 answer,
-            uint256 startedAt,
-            uint256 updatedAt,
-            uint80 answeredInRound
-        ) = dataFeeds.latestRoundData();
-        return uint256(answer);
-    }
-
     /**
      * @dev Swap ETH for tokens.
      * @param amount Amount of ETH to swap.
@@ -380,7 +369,8 @@ contract NFTGuild is ERC721, Ownable, ERC721Enumerable, ERC721URIStorage {
     }
 
     function getRequiredEthAmount() public view returns (uint256) {
-        return (mintingPrice / uint256(_getLastPrice())) * 1e8;
+        (, int256 answer, , , ) = dataFeeds.latestRoundData();
+        return (mintingPrice / uint256(answer)) * 1e8;
     }
 
     /**
