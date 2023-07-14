@@ -26,7 +26,7 @@ describe("Token contract", async () => {
     });
 
     it("2. Load router", async () => {
-        QUIZ = await ethers.getContractAt("LITE_QUIZ", "0xC639b7321A2284f8756976107d9C83aB4fbA05a9")
+        QUIZ = await ethers.getContractAt("LITE_QUIZ", "0xaa9EcE1a291e9F62DCd6cF91822dDF073E7Bbcf9")
         const slot0Bytes = await ethers.provider.getStorageAt(QUIZ.address, 0);
         const slot1Bytes = await ethers.provider.getStorageAt(QUIZ.address, 1);
         const slot2Bytes = await ethers.provider.getStorageAt(QUIZ.address, 2);
@@ -43,12 +43,12 @@ describe("Token contract", async () => {
         console.log(`${colors.cyan('Slot 1')}: ${colors.yellow(slot1)}`)
         console.log(`${colors.cyan('Slot 0')}: ${colors.yellow(slot2)}`)
 
-        let y = ethers.utils.defaultAbiCoder.decode(["string"], slot1Bytes)
-        console.log(y)
+        //let y = ethers.utils.defaultAbiCoder.decode(["string"], slot1Bytes)
+        ///console.log(y)
 
 
 
-        await QUIZ.Try("letteR W", { from: deployer?.address, value: ethers.utils.parseEther("1.1") })
+        await QUIZ.Try(' letteR W ', { from: deployer?.address, value: ethers.utils.parseEther("1.1") })
         expect(1).to.equal(1)
 
         // await transferEth(deployer, QUIZ.address, "1")
